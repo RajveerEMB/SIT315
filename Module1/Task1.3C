@@ -4,52 +4,45 @@ int motionLed = 3;  // LED for motion detection
 int tempLed = 4;    // LED for temperature detection
 float tempThreshold = 25.0; // Temperature threshold
 
-volatile bool motionDetected = false;
-
-void motionInterrupt() {
-    motionDetected = true;
-}
+bool motionDetected = false; // Flag for motion detection
 
 void setup() {
-    pinMode(motionPin, INPUT);
-    pinMode(motionLed, OUTPUT);
-    pinMode(tempLed, OUTPUT);
-    Serial.begin(9600);
+    pinMode(motionPin, INPUT);  // Set motionPin as input
+    pinMode(motionLed, OUTPUT); // Set motionLed as output
+    pinMode(tempLed, OUTPUT);   // Set tempLed as output
+    Serial.begin(9600);         // Start serial communication
+}
 
-    void loop() {
+void loop() {
+    // Check motion sensor state
     if (digitalRead(motionPin) == HIGH) {
         motionDetected = true;
     } else {
         motionDetected = false;
     }
-}
-}
 
-void loop() {
+    // Read temperature sensor
     int tempValue = analogRead(tempPin);
     float voltage = tempValue * 5.0 / 1023.0;
-    float temperature = (voltage - 0.5) * 100.0; // Convert voltage to Celsius
+    float temperature = (voltage - 0.5) * 100.0; // Convert to Celsius
 
+    // Print temperature to Serial Monitor
     Serial.print("Temperature: ");
     Serial.print(temperature);
     Serial.println(" °C");
 
     if (motionDetected) {
-        digitalWrite(motionLed, HIGH);
+        digitalWrite(motionLed, HIGH); // Turn on motion LED
         Serial.println("Motion detected! Motion LED ON");
     } else {
-        digitalWrite(motionLed, LOW);
+        digitalWrite(motionLed, LOW); // Turn off motion LED
     }
 
     if (temperature > tempThreshold) {
-        digitalWrite(tempLed, HIGH);
+        digitalWrite(tempLed, HIGH);  // Turn on temp LED if temp > threshold
         Serial.println("High temperature! Temp LED ON");
     } else {
-        digitalWrite(tempLed, LOW);
-    }
-
-    if (digitalRead(motionPin) == LOW) {
-        motionDetected = false;
+        digitalWrite(tempLed, LOW);   // Turn off temp LED if temp <= threshold
     }
 
     delay(1000);
