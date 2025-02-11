@@ -1,0 +1,50 @@
+int motionPin = 2;  // Motion sensor
+int tempPin = A0;   // Temperature sensor
+int motionLed = 3;  // LED for motion detection
+int tempLed = 4;    // LED for temperature detection
+float tempThreshold = 25.0; // Temperature threshold
+
+volatile bool motionDetected = false;
+
+void motionInterrupt() {
+    motionDetected = true;
+}
+
+void setup() {
+    pinMode(motionPin, INPUT);
+    pinMode(motionLed, OUTPUT);
+    pinMode(tempLed, OUTPUT);
+    Serial.begin(9600);
+
+    attachInterrupt(digitalPinToInterrupt(motionPin), motionInterrupt, RISING);
+}
+
+void loop() {
+    int tempValue = analogRead(tempPin);
+    float voltage = tempValue * 5.0 / 1023.0;
+    float temperature = (voltage - 0.5) * 100.0; // Convert voltage to Celsius
+
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.println(" °C");
+
+    if (motionDetected) {
+        digitalWrite(motionLed, HIGH);
+        Serial.println("Motion detected! Motion LED ON");
+    } else {
+        digitalWrite(motionLed, LOW);
+    }
+
+    if (temperature > tempThreshold) {
+        digitalWrite(tempLed, HIGH);
+        Serial.println("High temperature! Temp LED ON");
+    } else {
+        digitalWrite(tempLed, LOW);
+    }
+
+    if (digitalRead(motionPin) == LOW) {
+        motionDetected = false;
+    }
+
+    delay(1000);
+}
