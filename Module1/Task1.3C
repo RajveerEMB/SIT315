@@ -16,7 +16,13 @@ void setup() {
     pinMode(tempLed, OUTPUT);
     Serial.begin(9600);
 
-    attachInterrupt(digitalPinToInterrupt(motionPin), motionInterrupt, RISING);
+    void loop() {
+    if (digitalRead(motionPin) == HIGH) {
+        motionDetected = true;
+    } else {
+        motionDetected = false;
+    }
+}
 }
 
 void loop() {
