@@ -4,46 +4,55 @@ int motionLed = 3;  // LED for motion detection
 int tempLed = 4;    // LED for temperature detection
 float tempThreshold = 25.0; // Temperature threshold
 
-bool motionDetected = false; // Flag for motion detection
+volatile bool motionDetected = false;
+
+void motionInterrupt() {
+    motionDetected = true;
+}
 
 void setup() {
-    pinMode(motionPin, INPUT);  // Set motionPin as input
-    pinMode(motionLed, OUTPUT); // Set motionLed as output
-    pinMode(tempLed, OUTPUT);   // Set tempLed as output
-    Serial.begin(9600);         // Start serial communication
+    pinMode(motionPin, INPUT);
+    pinMode(motionLed, OUTPUT);
+    pinMode(tempLed, OUTPUT);
+    Serial.begin(9600);
+
+    attachInterrupt(digitalPinToInterrupt(motionPin), motionInterrupt, RISING);
+
+    digitalWrite(motionLed, HIGH);
+    digitalWrite(tempLed, HIGH);
+    delay(1000);
+    digitalWrite(motionLed, LOW);
+    digitalWrite(tempLed, LOW);
 }
 
 void loop() {
-    // Check motion sensor state
-    if (digitalRead(motionPin) == HIGH) {
-        motionDetected = true;
-    } else {
-        motionDetected = false;
-    }
-
-    // Read temperature sensor
     int tempValue = analogRead(tempPin);
     float voltage = tempValue * 5.0 / 1023.0;
-    float temperature = (voltage - 0.5) * 100.0; // Convert to Celsius
+    float temperature = (voltage - 0.5) * 100.0; // Convert voltage to Celsius
 
-    // Print temperature to Serial Monitor
     Serial.print("Temperature: ");
     Serial.print(temperature);
     Serial.println(" °C");
 
+    int motionState = digitalRead(motionPin);
+    Serial.print("Motion Sensor State: ");
+    Serial.println(motionState);
+
     if (motionDetected) {
-        digitalWrite(motionLed, HIGH); // Turn on motion LED
+        digitalWrite(motionLed, HIGH);
         Serial.println("Motion detected! Motion LED ON");
-    } else {
-        digitalWrite(motionLed, LOW); // Turn off motion LED
+        delay(1000);
+        digitalWrite(motionLed, LOW);
+        motionDetected = false;
     }
 
     if (temperature > tempThreshold) {
-        digitalWrite(tempLed, HIGH);  // Turn on temp LED if temp > threshold
+        digitalWrite(tempLed, HIGH);
         Serial.println("High temperature! Temp LED ON");
+        delay(1000);
     } else {
-        digitalWrite(tempLed, LOW);   // Turn off temp LED if temp <= threshold
+        digitalWrite(tempLed, LOW);
     }
 
-    delay(1000);
+    delay(500);
 }
