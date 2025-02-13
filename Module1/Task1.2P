@@ -1,0 +1,29 @@
+int ledPin = 10;
+int motionPin = 2; // Motion sensor digital output
+
+volatile bool motionDetected = false; 
+
+void setup() {
+  pinMode(motionPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+  Serial.begin(9600);
+
+  // Attach interrupt to the motionPin
+  attachInterrupt(digitalPinToInterrupt(motionPin), motionState, RISING);
+}
+
+void loop() {
+  if (motionDetected) {
+    digitalWrite(ledPin, HIGH); // Turn LED on
+    Serial.println("Motion detected! LED ON");
+  } else {
+    digitalWrite(ledPin, LOW); // Turn LED off
+    Serial.println("No motion detected. LED OFF");
+  }
+
+  delay(1500); // Delay to avoid spamming the Serial monitor
+}
+
+void motionState() {
+  motionDetected = true; // Set the flag when motion is detected
+}
