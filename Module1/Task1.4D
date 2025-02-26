@@ -1,0 +1,164 @@
+#include <avr/interrupt.h>
+
+// Pin Assignments
+#define PIR_PIN 2        // PIR Motion Sensor (External Interrupt)
+#define LED_PIN 13       // Indicator LED
+#define LDR_PIN A0       // Light Sensor (Analog Input)
+#define BUTTON_PIN 4     // Push Button (Using Pin Change Interrupt)
+#define NTC_PIN A1       // NTC Thermistor (Analog Input)
+
+// Thermistor Parameters (10K)
+#define SERIES_RESISTOR 10000.0 // Fixed resistor value
+#define NOMINAL_RESISTANCE 10000.0 // Resistance at 25°C
+#define NOMINAL_TEMPERATURE 25.0 // Standard temperature reference
+#define BETA_COEFFICIENT 3950 // Beta value for NTC
+
+// Global Flags
+volatile bool motionDetected = false;
+volatile bool timerFlag = false;
+volatile bool buttonPressed = false;
+
+// Function Prototypes
+void motionISR();
+void configureTimer();
+void monitorTemperature();
+void monitorLightLevel();
+void configurePCINT();
+void buttonISR();
+
+void setup() {
+    pinMode(PIR_PIN, INPUT);
+    pinMode(LED_PIN, OUTPUT);
+    pinMode(LDR_PIN, INPUT);
+    pinMode(NTC_PIN, INPUT);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);  // Enable internal pull-up resistor for the button
+
+    Serial.begin(9600);
+    Serial.println("System Initialized!");
+
+    // Enable external interrupt for motion detection
+    attachInterrupt(digitalPinToInterrupt(PIR_PIN), motionISR, RISING);
+
+    // Configure Pin Change Interrupt for button press
+    configurePCINT();
+
+    // Configure Timer1 to generate an interrupt every second
+    configureTimer();
+}
+
+void loop() {
+    if (motionDetected) {
+        Serial.println("Motion detected!");
+        digitalWrite(LED_PIN, HIGH);
+        Serial.println("LED is ON for 2 seconds");
+
+        delay(2000);  // Keep LED on for 2 seconds
+
+        digitalWrite(LED_PIN, LOW);
+        Serial.println("LED turned OFF.");
+        motionDetected = false;
+    }
+
+    if (buttonPressed) {
+        Serial.println("Button was pressed!");
+        digitalWrite(LED_PIN, HIGH);
+        delay(500);
+        digitalWrite(LED_PIN, LOW);
+        buttonPressed = false;
+    }
+
+    if (timerFlag) {
+        monitorTemperature();  // Read temperature sensor
+        monitorLightLevel();   // Read light sensor
+        timerFlag = false;   // Reset the flag
+    }
+}
+
+// ISR for PIR Sensor (Motion Detection)
+void motionISR() {
+    motionDetected = true;
+}
+
+// Function to set up Timer1 to trigger an interrupt every second
+void configureTimer() {
+    cli();  // Disable interrupts globally
+
+    TCCR1A = 0;               // Clear Timer1 Control Register A
+    TCCR1B = 0;               // Clear Timer1 Control Register B
+    TCNT1 = 0;                // Reset Timer1 counter
+    OCR1A = 15624;            // Compare match value for 1-second interval
+    TCCR1B |= (1 << WGM12);   // Set Timer1 to CTC mode
+    TCCR1B |= (1 << CS12) | (1 << CS10); // Set prescaler to 1024
+    TIMSK1 |= (1 << OCIE1A);  // Enable Timer1 Compare Match Interrupt
+
+    sei(); // Enable global interrupts
+}
+
+// Timer1 ISR (Triggers every second)
+ISR(TIMER1_COMPA_vect) {
+    timerFlag = true;
+}
+
+// Function to read temperature from NTC Thermistor
+void monitorTemperature() {
+    int ntcReading = analogRead(NTC_PIN);  // Read ADC value
+    float voltage = ntcReading * (5.0 / 1023.0);  // Convert to voltage
+
+    // Calculate NTC resistance
+    float resistance = SERIES_RESISTOR * (5.0 / voltage - 1.0);
+
+    // Apply Steinhart-Hart equation for temperature calculation
+    float steinhart;
+    steinhart = resistance / NOMINAL_RESISTANCE;  // R/Ro
+    steinhart = log(steinhart); // Natural log of (R/Ro)
+    steinhart /= BETA_COEFFICIENT; // Divide by Beta
+    steinhart += 1.0 / (NOMINAL_TEMPERATURE + 273.15); // Add reference temp
+    steinhart = 1.0 / steinhart; // Invert
+    steinhart -= 273.15; // Convert to Celsius
+
+    Serial.print("Temperature: ");
+    Serial.print(steinhart);
+    Serial.println(" °C");
+
+    if (steinhart > 30.0) {
+        Serial.println("High Temperature Alert!");
+        digitalWrite(LED_PIN, HIGH);
+        Serial.println("LED ON for 1 second");
+
+        delay(1000);  // Keep LED on for 1 second
+
+        digitalWrite(LED_PIN, LOW);
+        Serial.println("LED OFF.");
+    }
+}
+
+// Function to check LDR sensor value and toggle LED accordingly
+void monitorLightLevel() {
+    int ldrReading = analogRead(LDR_PIN);  // Read LDR value
+    Serial.print("LDR Value: ");
+    Serial.println(ldrReading);
+
+    if (ldrReading < 500) {  // Adjust threshold as needed
+        Serial.println("Low light detected! LED ON.");
+        digitalWrite(LED_PIN, HIGH);
+    } else {
+        digitalWrite(LED_PIN, LOW);
+    }
+}
+
+// Function to enable Pin Change Interrupt for button input
+void configurePCINT() {
+    cli();  // Temporarily disable interrupts
+
+    PCICR |= (1 << PCIE2);  // Enable Pin Change Interrupt for PORTD
+    PCMSK2 |= (1 << PCINT20); // Enable PCINT for pin D4
+
+    sei();  // Re-enable global interrupts
+}
+
+// ISR for Pin Change Interrupt (Button Press)
+ISR(PCINT2_vect) {
+    if (digitalRead(BUTTON_PIN) == LOW) {  // Detect button press
+        buttonPressed = true;
+    }
+}
